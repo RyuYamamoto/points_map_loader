@@ -4,6 +4,11 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl_ros/point_cloud.h>
 
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
+
 class PointsMapLoader
 {
 using PointType = pcl::PointXYZ;
@@ -16,7 +21,7 @@ public:
     pnh_.param<double>("leaf_size", leaf_size_, 0.2);
     pnh_.param<double>("period", period_, 1.0);
 
-    points_map_publisher_ = nh_.advertise<sensor_msgs::PointCloud2>("points_map", 1);
+    points_map_publisher_ = nh_.advertise<sensor_msgs::PointCloud2>("points_map", 5, true);
 
     map_publish_timer_ =
       nh_.createWallTimer(ros::WallDuration(period_), &PointsMapLoader::publish, this, true, true);
@@ -43,9 +48,40 @@ private:
       voxel_grid.filter(*filtered);
       pcd = filtered;
     }
+
+    geometry_msgs::Vector3 vec;
+    for(const auto &p : pcd->points) {
+      vec.x += p.x;
+      vec.y += p.y;
+      vec.z += p.z;
+    }
+    vec.x /= pcd->points.size();
+    vec.y /= pcd->points.size();
+    vec.z /= pcd->points.size();
+    publishMapTF(vec);
+
     sensor_msgs::PointCloud2 points_map_msg;
     pcl::toROSMsg(*pcd, points_map_msg);
     return points_map_msg;
+  }
+  void publishMapTF(const geometry_msgs::Vector3 vec)
+  {
+    static tf2_ros::StaticTransformBroadcaster map_tf_broadcaster;
+    geometry_msgs::TransformStamped map_transform;
+
+    map_transform.header.stamp = ros::Time::now();
+    map_transform.header.frame_id = "map";
+    map_transform.child_frame_id = "world";
+    map_transform.transform.translation.x = vec.x;
+    map_transform.transform.translation.y = vec.y;
+    map_transform.transform.translation.z = vec.z;
+    map_transform.transform.rotation.w = 1.0;
+    map_transform.transform.rotation.x = 0.0;
+    map_transform.transform.rotation.y = 0.0;
+    map_transform.transform.rotation.z = 0.0;
+    ROS_INFO("x: %f y: %f z: %f", vec.x, vec.y, vec.z);
+
+    map_tf_broadcaster.sendTransform(map_transform);
   }
   void publish(const ros::WallTimerEvent & event)
   {

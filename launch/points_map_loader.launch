@@ -10,4 +10,6 @@
 		<param name="leaf_size" value="$(arg leaf_size)"/>
 		<param name="period" value="$(arg period)"/>
 	</node>
+
+	<node pkg="rviz" type="rviz" name="rviz" args="-d $(find points_map_loader)/rviz/map_loader.rviz"/>
 </launch>
