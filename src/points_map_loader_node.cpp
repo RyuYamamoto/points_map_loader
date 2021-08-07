@@ -21,7 +21,7 @@ public:
     pnh_.param<double>("leaf_size", leaf_size_, 0.2);
     pnh_.param<double>("period", period_, 1.0);
 
-    points_map_publisher_ = nh_.advertise<sensor_msgs::PointCloud2>("points_map", 1);
+    points_map_publisher_ = nh_.advertise<sensor_msgs::PointCloud2>("points_map", 5, true);
 
     map_publish_timer_ =
       nh_.createWallTimer(ros::WallDuration(period_), &PointsMapLoader::publish, this, true, true);
