@@ -6,10 +6,12 @@
 
 class PointsMapLoader
 {
+using PointType = pcl::PointXYZ;
+
 public:
   PointsMapLoader()
   {
-    pnh_.param<std::string>("pcd_files", pcd_files_, "points_map.pcd");
+    pnh_.param<std::string>("map_path", map_path_, "points_map.pcd");
     pnh_.param<bool>("use_downsample", use_downsample_, false);
     pnh_.param<double>("leaf_size", leaf_size_, 0.2);
     pnh_.param<double>("period", period_, 1.0);
@@ -19,19 +21,22 @@ public:
     map_publish_timer_ =
       nh_.createWallTimer(ros::WallDuration(period_), &PointsMapLoader::publish, this, true, true);
 
-    points_map_ = loadPCD(pcd_files_);
+    points_map_ = loadPCD(map_path_);
   }
   ~PointsMapLoader() = default;
 
 private:
-  sensor_msgs::PointCloud2 loadPCD(const std::string pcd_files)
+  sensor_msgs::PointCloud2 loadPCD(const std::string map_path)
   {
-    pcl::PointCloud<pcl::PointXYZI>::Ptr pcd(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::io::loadPCDFile(pcd_files, *pcd);
+    pcl::PointCloud<PointType>::Ptr pcd(new pcl::PointCloud<PointType>);
+    if(pcl::io::loadPCDFile(map_path, *pcd) == -1) {
+      ROS_ERROR("map file is not found.");
+      exit(-1);
+    }
 
     if (use_downsample_) {
-      pcl::PointCloud<pcl::PointXYZI>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZI>);
-      pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
+      pcl::PointCloud<PointType>::Ptr filtered(new pcl::PointCloud<PointType>);
+      pcl::VoxelGrid<PointType> voxel_grid;
       voxel_grid.setLeafSize(leaf_size_, leaf_size_, leaf_size_);
       voxel_grid.setInputCloud(pcd);
 
@@ -56,7 +61,7 @@ private:
   ros::WallTimer map_publish_timer_;
   ros::Publisher points_map_publisher_;
 
-  std::string pcd_files_;
+  std::string map_path_;
 
   sensor_msgs::PointCloud2 points_map_;
 

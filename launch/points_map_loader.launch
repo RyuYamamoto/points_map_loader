@@ -1,11 +1,11 @@
 <launch>
-	<arg name="pcd_files" default="$(find points_map_loader)/pcd/test.pcd"/>
+	<arg name="map_path" default="$(find points_map_loader)/pcd/test.pcd"/>
 	<arg name="use_downsample" default="false"/>
 	<arg name="leaf_size" default="0.2"/>
 	<arg name="period" default="1.0"/>
 
 	<node pkg="points_map_loader" type="points_map_loader_node" name="points_map_loader_node">
-		<param name="pcd_files" value="$(arg pcd_files)"/>
+		<param name="map_path" value="$(arg map_path)"/>
 		<param name="use_downsample" value="$(arg use_downsample)"/>
 		<param name="leaf_size" value="$(arg leaf_size)"/>
 		<param name="period" value="$(arg period)"/>
