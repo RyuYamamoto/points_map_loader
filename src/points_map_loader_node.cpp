@@ -79,7 +79,6 @@ private:
     map_transform.transform.rotation.x = 0.0;
     map_transform.transform.rotation.y = 0.0;
     map_transform.transform.rotation.z = 0.0;
-    ROS_INFO("x: %f y: %f z: %f", vec.x, vec.y, vec.z);
 
     map_tf_broadcaster.sendTransform(map_transform);
   }
