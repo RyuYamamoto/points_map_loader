@@ -1,0 +1,18 @@
+<launch>
+	<arg name="map_path" default="test.pcd"/>
+	<arg name="use_downsample" default="false"/>
+	<arg name="leaf_size" default="0.2"/>
+	<arg name="period" default="1.0"/>
+	<arg name="rviz" default="false"/>
+
+	<node pkg="points_map_loader" exec="points_map_loader" name="points_map_loader_node" output="screen">
+		<param name="map_path" value="$(var map_path)"/>
+		<param name="use_downsample" value="$(var use_downsample)"/>
+		<param name="leaf_size" value="$(var leaf_size)"/>
+		<param name="period" value="$(var period)"/>
+	</node>
+
+	<group if="$(var rviz)">
+		<node pkg="rviz2" exec="rviz2" name="rviz2" args="-d $(find-pkg-share points_map_loader)/rviz/map_loader.rviz"/>
+	</group>
+</launch>

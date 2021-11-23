@@ -1,25 +1,27 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(points_map_loader)
 
-add_compile_options(-std=c++14)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+endif()
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+endif()
 
-find_package(catkin REQUIRED COMPONENTS
-  pcl_ros
-  roscpp
-  sensor_msgs
+find_package(ament_cmake_auto REQUIRED)
+find_package(PCL REQUIRED)
+ament_auto_find_build_dependencies()
+
+ament_auto_add_library(points_map_loader_node SHARED src/points_map_loader_node.cpp)
+rclcpp_components_register_node(points_map_loader_node
+  PLUGIN "PointsMapLoader"
+  EXECUTABLE points_map_loader
 )
 
-catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES points_map_loader
-#  CATKIN_DEPENDS pcl_ros roscpp sensor_msgs
-#  DEPENDS system_lib
-)
-
-include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
-)
-
-add_executable(points_map_loader_node src/points_map_loader_node.cpp)
-target_link_libraries(points_map_loader_node ${catkin_LIBRARIES})
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+endif()
+ament_auto_package(INSTALL_TO_SHARE launch rviz)

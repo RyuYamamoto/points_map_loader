@@ -1,41 +1,46 @@
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <pcl/filters/voxel_grid.h>
-#include <pcl_ros/point_cloud.h>
+#include <pcl/point_cloud.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 
-class PointsMapLoader
+class PointsMapLoader : public rclcpp::Node
 {
 using PointType = pcl::PointXYZ;
 
 public:
-  PointsMapLoader()
+  PointsMapLoader(const rclcpp::NodeOptions & options) : Node("points_map_loader", options)
   {
-    pnh_.param<std::string>("map_path", map_path_, "points_map.pcd");
-    pnh_.param<bool>("use_downsample", use_downsample_, false);
-    pnh_.param<double>("leaf_size", leaf_size_, 0.2);
-    pnh_.param<double>("period", period_, 1.0);
+    map_path_ = this->declare_parameter("map_path", "points_map.pcd");
+    use_downsample_ = this->declare_parameter("use_downsample", false);
+    leaf_size_ = this->declare_parameter("leaf_size", 0.2);
+    period_ = this->declare_parameter("period", 1.0);
 
-    points_map_publisher_ = nh_.advertise<sensor_msgs::PointCloud2>("points_map", 5, true);
+    static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
 
-    map_publish_timer_ =
-      nh_.createWallTimer(ros::WallDuration(period_), &PointsMapLoader::publish, this, true, true);
+    rclcpp::QoS qos{1};
+    qos.transient_local();
+    qos.keep_last(1);
+    points_map_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("points_map", qos);
 
     points_map_ = loadPCD(map_path_);
+
+    publish(points_map_);
   }
   ~PointsMapLoader() = default;
 
 private:
-  sensor_msgs::PointCloud2 loadPCD(const std::string map_path)
+  sensor_msgs::msg::PointCloud2 loadPCD(const std::string map_path)
   {
     pcl::PointCloud<PointType>::Ptr pcd(new pcl::PointCloud<PointType>);
     if(pcl::io::loadPCDFile(map_path, *pcd) == -1) {
-      ROS_ERROR("map file is not found.");
+      RCLCPP_ERROR(get_logger(), "map file is not found.");
       exit(-1);
     }
 
@@ -49,7 +54,7 @@ private:
       pcd = filtered;
     }
 
-    geometry_msgs::Vector3 vec;
+    geometry_msgs::msg::Vector3 vec;
     for(const auto &p : pcd->points) {
       vec.x += p.x;
       vec.y += p.y;
@@ -60,16 +65,15 @@ private:
     vec.z /= pcd->points.size();
     publishMapTF(vec);
 
-    sensor_msgs::PointCloud2 points_map_msg;
+    sensor_msgs::msg::PointCloud2 points_map_msg;
     pcl::toROSMsg(*pcd, points_map_msg);
     return points_map_msg;
   }
-  void publishMapTF(const geometry_msgs::Vector3 vec)
+  void publishMapTF(const geometry_msgs::msg::Vector3 vec)
   {
-    static tf2_ros::StaticTransformBroadcaster map_tf_broadcaster;
-    geometry_msgs::TransformStamped map_transform;
+    geometry_msgs::msg::TransformStamped map_transform;
 
-    map_transform.header.stamp = ros::Time::now();
+    map_transform.header.stamp = rclcpp::Clock().now();
     map_transform.header.frame_id = "map";
     map_transform.child_frame_id = "world";
     map_transform.transform.translation.x = vec.x;
@@ -80,35 +84,26 @@ private:
     map_transform.transform.rotation.y = 0.0;
     map_transform.transform.rotation.z = 0.0;
 
-    map_tf_broadcaster.sendTransform(map_transform);
+    static_broadcaster_->sendTransform(map_transform);
   }
-  void publish(const ros::WallTimerEvent & event)
+  void publish(sensor_msgs::msg::PointCloud2 &map)
   {
-    points_map_.header.frame_id = "map";
-    points_map_.header.stamp = ros::Time(0);
-    points_map_publisher_.publish(points_map_);
+    map.header.frame_id = "map";
+    points_map_publisher_->publish(map);
   }
 
 private:
-  ros::NodeHandle nh_{};
-  ros::NodeHandle pnh_{"~"};
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr points_map_publisher_;
 
-  ros::WallTimer map_publish_timer_;
-  ros::Publisher points_map_publisher_;
+  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
+
+  sensor_msgs::msg::PointCloud2 points_map_;
 
   std::string map_path_;
-
-  sensor_msgs::PointCloud2 points_map_;
-
   bool use_downsample_;
   double leaf_size_;
   double period_;
 };
 
-int main(int argc, char ** argv)
-{
-  ros::init(argc, argv, "points_map_loader");
-  PointsMapLoader points_map_loader;
-  ros::spin();
-  return 0;
-}
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(PointsMapLoader)
